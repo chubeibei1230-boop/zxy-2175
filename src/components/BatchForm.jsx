@@ -54,30 +54,32 @@ export default function BatchForm({ batch, onSave, onCancel, roastLevels, status
     if (!templateId) return
     const template = templates.find(t => t.id === templateId)
     if (template) {
-      setFormData(prev => ({
-        ...prev,
-        beanType: template.beanType || prev.beanType,
-        processMethod: template.processMethod || prev.processMethod,
-        roastLevel: template.roastLevel || prev.roastLevel,
-        yellowTime: template.yellowTime || prev.yellowTime,
-        firstCrackTime: template.firstCrackTime || prev.firstCrackTime,
-        dropTemp: template.dropTemp !== null && template.dropTemp !== undefined ? template.dropTemp : prev.dropTemp,
-        greenWeight: template.greenWeight !== null && template.greenWeight !== undefined ? template.greenWeight : prev.greenWeight,
-        roastedWeight: template.roastedWeight !== null && template.roastedWeight !== undefined ? template.roastedWeight : prev.roastedWeight,
-        flavorNotes: template.flavorTarget || prev.flavorNotes,
-        appliedTemplateId: template.id,
-        appliedTemplateName: template.name
-      }))
+      const appliedData = applyTemplateToBatchLocal(template)
+      setFormData(appliedData)
+    }
+  }
+
+  function applyTemplateToBatchLocal(template) {
+    return {
+      ...emptyBatch,
+      beanType: template.beanType || '',
+      processMethod: template.processMethod || '',
+      roastLevel: template.roastLevel || '',
+      yellowTime: template.yellowTime || '',
+      firstCrackTime: template.firstCrackTime || '',
+      dropTemp: template.dropTemp !== null && template.dropTemp !== undefined ? template.dropTemp : '',
+      greenWeight: template.greenWeight !== null && template.greenWeight !== undefined ? template.greenWeight : '',
+      roastedWeight: template.roastedWeight !== null && template.roastedWeight !== undefined ? template.roastedWeight : '',
+      flavorNotes: template.flavorTarget || '',
+      appliedTemplateId: template.id,
+      appliedTemplateName: template.name
     }
   }
 
   function clearTemplate() {
     setSelectedTemplateId('')
-    setFormData(prev => {
-      const next = { ...prev }
-      delete next.appliedTemplateId
-      delete next.appliedTemplateName
-      return next
+    setFormData({
+      ...emptyBatch
     })
   }
 

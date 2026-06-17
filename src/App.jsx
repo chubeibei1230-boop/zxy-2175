@@ -175,12 +175,10 @@ export default function App() {
 
   function handleUseTemplate(template) {
     const batchData = applyTemplateToBatch(template)
-    markTemplateUsed(template.id)
-    setTemplates(getTemplates())
     setEditingBatch(batchData)
     setShowTemplateList(false)
     setShowForm(true)
-    showToast(`已应用模板「${template.name}」，请调整后保存`)
+    showToast(`已应用模板「${template.name}」，调整后保存才算真正使用`)
   }
 
   function handleToggleRecommendTemplate(id) {

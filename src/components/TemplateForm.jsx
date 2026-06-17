@@ -70,8 +70,23 @@ export default function TemplateForm({
     if (!formData.beanType?.trim()) {
       errs.beanType = '请输入豆种名称'
     }
+    if (!formData.roastLevel?.trim()) {
+      errs.roastLevel = '请选择烘焙程度'
+    }
+    if (!formData.yellowTime?.trim() && !formData.firstCrackTime?.trim()) {
+      errs.yellowTime = '至少填写转黄时间或一爆时间其中之一'
+    }
+    if (formData.dropTemp === '' || formData.dropTemp === null || formData.dropTemp === undefined) {
+      errs.dropTemp = '请填写下豆温度'
+    }
     if (formData.dropTemp && isNaN(Number(formData.dropTemp))) {
       errs.dropTemp = '下豆温度必须是数字'
+    }
+    if (!formData.flavorTarget?.trim()) {
+      errs.flavorTarget = '请描述风味目标'
+    }
+    if (!formData.reviewConclusion?.trim()) {
+      errs.reviewConclusion = '请填写复盘结论，沉淀可复用的关键经验'
     }
     setErrors(errs)
     return Object.keys(errs).length === 0
