@@ -28,17 +28,17 @@ export default function CompareView({ batches, onClose }) {
     { label: '生豆重量', key: 'greenWeight', format: v => v !== null && v !== undefined && v !== '' ? `${v}g` : '-' },
     { label: '熟豆重量', key: 'roastedWeight', format: v => v !== null && v !== undefined && v !== '' ? `${v}g` : '-' },
     { label: '总分', key: 'cuppingTotal', format: (v, b) => {
-        const s = calculateTotalScore(b.cupping)
+        const s = calculateTotalScore(b?.cupping)
         return s !== null ? s : '-'
       }
     },
-    { label: '香气', key: 'aroma', format: (v, b) => b.cupping?.aroma !== null && b.cupping?.aroma !== undefined ? b.cupping.aroma : '-' },
-    { label: '酸质', key: 'acidity', format: (v, b) => b.cupping?.acidity !== null && b.cupping?.acidity !== undefined ? b.cupping.acidity : '-' },
-    { label: '甜感', key: 'sweetness', format: (v, b) => b.cupping?.sweetness !== null && b.cupping?.sweetness !== undefined ? b.cupping.sweetness : '-' },
-    { label: '醇厚度', key: 'body', format: (v, b) => b.cupping?.body !== null && b.cupping?.body !== undefined ? b.cupping.body : '-' },
-    { label: '余韵', key: 'aftertaste', format: (v, b) => b.cupping?.aftertaste !== null && b.cupping?.aftertaste !== undefined ? b.cupping.aftertaste : '-' },
-    { label: '均衡度', key: 'balance', format: (v, b) => b.cupping?.balance !== null && b.cupping?.balance !== undefined ? b.cupping.balance : '-' },
-    { label: '缺陷扣分', key: 'defectDeduction', format: (v, b) => b.cupping?.defectDeduction !== null && b.cupping?.defectDeduction !== undefined ? b.cupping.defectDeduction : '-' },
+    { label: '香气', key: 'aroma', format: (v, b) => (b?.cupping?.aroma !== null && b?.cupping?.aroma !== undefined && b?.cupping?.aroma !== '') ? b.cupping.aroma : '-' },
+    { label: '酸质', key: 'acidity', format: (v, b) => (b?.cupping?.acidity !== null && b?.cupping?.acidity !== undefined && b?.cupping?.acidity !== '') ? b.cupping.acidity : '-' },
+    { label: '甜感', key: 'sweetness', format: (v, b) => (b?.cupping?.sweetness !== null && b?.cupping?.sweetness !== undefined && b?.cupping?.sweetness !== '') ? b.cupping.sweetness : '-' },
+    { label: '醇厚度', key: 'body', format: (v, b) => (b?.cupping?.body !== null && b?.cupping?.body !== undefined && b?.cupping?.body !== '') ? b.cupping.body : '-' },
+    { label: '余韵', key: 'aftertaste', format: (v, b) => (b?.cupping?.aftertaste !== null && b?.cupping?.aftertaste !== undefined && b?.cupping?.aftertaste !== '') ? b.cupping.aftertaste : '-' },
+    { label: '均衡度', key: 'balance', format: (v, b) => (b?.cupping?.balance !== null && b?.cupping?.balance !== undefined && b?.cupping?.balance !== '') ? b.cupping.balance : '-' },
+    { label: '缺陷扣分', key: 'defectDeduction', format: (v, b) => (b?.cupping?.defectDeduction !== null && b?.cupping?.defectDeduction !== undefined && b?.cupping?.defectDeduction !== '') ? b.cupping.defectDeduction : '-' },
     { label: '复盘状态', key: 'reviewStatus' },
     { label: '缺陷备注', key: 'defectNotes' },
     { label: '复盘结论', key: 'reviewConclusion' }
@@ -70,7 +70,10 @@ export default function CompareView({ batches, onClose }) {
         if (typeof v === 'number') return v
         if (typeof v === 'string' && v.includes(':')) {
           const parts = v.split(':')
-          return parseInt(parts[0]) * 60 + parseInt(parts[1])
+          const p0 = parseInt(parts[0])
+          const p1 = parseInt(parts[1])
+          if (isNaN(p0) || isNaN(p1)) return NaN
+          return p0 * 60 + p1
         }
         return parseFloat(v)
       }).filter(n => !isNaN(n))
@@ -78,10 +81,19 @@ export default function CompareView({ batches, onClose }) {
         const min = Math.min(...nums)
         const max = Math.max(...nums)
         const current = values[index]
-        const currentNum = typeof current === 'number' ? current :
-          (typeof current === 'string' && current.includes(':')) ?
-            (parseInt(current.split(':')[0]) * 60 + parseInt(current.split(':')[1])) :
-            parseFloat(current)
+        let currentNum
+        if (typeof current === 'number') {
+          currentNum = current
+        } else if (typeof current === 'string' && current.includes(':')) {
+          const parts = current.split(':')
+          const p0 = parseInt(parts[0])
+          const p1 = parseInt(parts[1])
+          if (isNaN(p0) || isNaN(p1)) return 'val-diff'
+          currentNum = p0 * 60 + p1
+        } else {
+          currentNum = parseFloat(current)
+        }
+        if (isNaN(currentNum)) return 'val-diff'
         
         if (key === 'defectDeduction') {
           if (currentNum === max) return 'val-high'
@@ -122,7 +134,7 @@ export default function CompareView({ batches, onClose }) {
                   <td className="compare-label">{field.label}</td>
                   {batches.map((b, i) => (
                     <td key={b.id} className={getDiffClass(i, field.key)}>
-                      {field.format ? field.format(b[field.key]) : (b[field.key] || '-')}
+                      {field.format ? field.format(b[field.key], b) : (b[field.key] || '-')}
                     </td>
                   ))}
                 </tr>
@@ -185,8 +197,9 @@ export default function CompareView({ batches, onClose }) {
                   <div className="cupping-bar-label">{field.label}</div>
                   <div className="cupping-bar-batches">
                     {batches.map((b, i) => {
-                      const value = b.cupping?.[field.key]
-                      const percent = value ? (value / field.max) * 100 : 0
+                      const rawValue = b.cupping?.[field.key]
+                      const numericValue = (rawValue !== null && rawValue !== undefined && rawValue !== '') ? Number(rawValue) : NaN
+                      const percent = !isNaN(numericValue) ? (numericValue / field.max) * 100 : 0
                       const colors = ['#8b6f47', '#2e7d32', '#1565c0']
                       return (
                         <div key={b.id} className="cupping-bar-item">
@@ -194,13 +207,13 @@ export default function CompareView({ batches, onClose }) {
                             <div
                               className="cupping-bar-fill"
                               style={{
-                                width: `${percent}%`,
+                                width: `${Math.min(100, Math.max(0, percent))}%`,
                                 background: colors[i % colors.length]
                               }}
                             />
                           </div>
                           <div className="cupping-bar-value">
-                            {value !== null && value !== undefined ? value : '-'}
+                            {!isNaN(numericValue) ? numericValue : '-'}
                           </div>
                         </div>
                       )

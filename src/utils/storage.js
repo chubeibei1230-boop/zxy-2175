@@ -42,10 +42,10 @@ export function calculateTotalScore(cupping) {
   if (!cupping) return null
   const scores = CUPPING_FIELDS.map(f => cupping[f.key])
   const validScores = scores.filter(s => s !== null && s !== undefined && s !== '')
-  if (validScores.length === 0) return null
+  if (validScores.length !== CUPPING_FIELDS.length) return null
   const sum = validScores.reduce((acc, s) => acc + Number(s), 0)
   const defectDeduction = cupping.defectDeduction ? Number(cupping.defectDeduction) : 0
-  const normalizedScore = (sum / (validScores.length * 10)) * 100 - defectDeduction * (100 / 60)
+  const normalizedScore = (sum / (CUPPING_FIELDS.length * 10)) * 100 - defectDeduction * (100 / 60)
   return Number(Math.max(0, normalizedScore).toFixed(1))
 }
 
@@ -142,6 +142,11 @@ export function duplicateBatch(id) {
   const batches = getBatches()
   const original = batches.find(b => b.id === id)
   if (original) {
+    const emptyCupping = {}
+    CUPPING_FIELDS.forEach(f => { emptyCupping[f.key] = '' })
+    emptyCupping.defectDeduction = ''
+    emptyCupping.overallNotes = ''
+    
     const copy = {
       ...original,
       id: generateId(),
@@ -150,7 +155,7 @@ export function duplicateBatch(id) {
       reviewConclusion: '',
       defectNotes: '',
       flavorNotes: original.flavorNotes,
-      cupping: original.cupping ? { ...original.cupping, defectDeduction: '' } : null,
+      cupping: emptyCupping,
       createdAt: Date.now()
     }
     batches.unshift(copy)

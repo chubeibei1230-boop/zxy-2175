@@ -45,9 +45,15 @@ export default function App() {
       if (filters.scoreRange) {
         const totalScore = calculateTotalScore(b.cupping)
         if (totalScore === null) return false
-        const [min, max] = filters.scoreRange === '90+' ? [90, 100] :
-                          filters.scoreRange === 'below75' ? [0, 74.9] :
-                          filters.scoreRange.split('-').map(Number)
+        let min, max
+        if (filters.scoreRange === '90+') {
+          min = 90; max = 100
+        } else if (filters.scoreRange === 'below75') {
+          min = 0; max = 74.99
+        } else {
+          [min, max] = filters.scoreRange.split('-').map(Number)
+          max = max + 0.99
+        }
         if (totalScore < min || totalScore > max) return false
       }
       
