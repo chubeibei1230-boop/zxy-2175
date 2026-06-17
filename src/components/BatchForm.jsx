@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { CUPPING_FIELDS, calculateTotalScore, getGrade, getReviewSuggestion } from '../utils/storage'
 
 const emptyBatch = {
   beanType: '',
@@ -13,7 +14,17 @@ const emptyBatch = {
   flavorNotes: '',
   defectNotes: '',
   reviewStatus: '待杯测',
-  reviewConclusion: ''
+  reviewConclusion: '',
+  cupping: {
+    aroma: '',
+    acidity: '',
+    sweetness: '',
+    body: '',
+    aftertaste: '',
+    balance: '',
+    defectDeduction: '',
+    overallNotes: ''
+  }
 }
 
 export default function BatchForm({ batch, onSave, onCancel, roastLevels, statusOptions }) {
@@ -22,7 +33,12 @@ export default function BatchForm({ batch, onSave, onCancel, roastLevels, status
 
   useEffect(() => {
     if (batch) {
-      setFormData({ ...emptyBatch, ...batch, dropTemp: batch.dropTemp?.toString() || '' })
+      setFormData({
+        ...emptyBatch,
+        ...batch,
+        dropTemp: batch.dropTemp?.toString() || '',
+        cupping: { ...emptyBatch.cupping, ...batch.cupping }
+      })
     } else {
       setFormData(emptyBatch)
     }
@@ -36,6 +52,26 @@ export default function BatchForm({ batch, onSave, onCancel, roastLevels, status
         delete next[field]
         return next
       })
+    }
+  }
+
+  function handleCuppingChange(field, value) {
+    setFormData(prev => ({
+      ...prev,
+      cupping: { ...prev.cupping, [field]: value }
+    }))
+  }
+
+  const totalScore = useMemo(() => calculateTotalScore(formData.cupping), [formData.cupping])
+  const grade = useMemo(() => getGrade(totalScore), [totalScore])
+  const suggestion = useMemo(() => getReviewSuggestion(formData), [formData])
+
+  function getSuggestionClass(suggestion) {
+    switch (suggestion) {
+      case '可复用': return 'reusable'
+      case '建议微调': return 'adjust'
+      case '需要重烘': return 'reroast'
+      default: return ''
     }
   }
 
@@ -58,11 +94,20 @@ export default function BatchForm({ batch, onSave, onCancel, roastLevels, status
     e.preventDefault()
     if (!validate()) return
 
+    const cuppingData = {}
+    CUPPING_FIELDS.forEach(f => {
+      const val = formData.cupping[f.key]
+      cuppingData[f.key] = val !== '' ? Number(val) : null
+    })
+    cuppingData.defectDeduction = formData.cupping.defectDeduction !== '' ? Number(formData.cupping.defectDeduction) : null
+    cuppingData.overallNotes = formData.cupping.overallNotes || ''
+
     const data = {
       ...formData,
       dropTemp: formData.dropTemp !== '' ? Number(formData.dropTemp) : null,
       greenWeight: formData.greenWeight !== '' ? Number(formData.greenWeight) : null,
-      roastedWeight: formData.roastedWeight !== '' ? Number(formData.roastedWeight) : null
+      roastedWeight: formData.roastedWeight !== '' ? Number(formData.roastedWeight) : null,
+      cupping: cuppingData
     }
     onSave(data)
   }
@@ -184,11 +229,11 @@ export default function BatchForm({ batch, onSave, onCancel, roastLevels, status
           </div>
 
           <div className="form-section">
-            <h3>杯测与复盘</h3>
+            <h3>风味记录</h3>
             <div className="form-group">
               <label>风味描述</label>
               <textarea
-                rows={3}
+                rows={2}
                 value={formData.flavorNotes}
                 onChange={e => handleChange('flavorNotes', e.target.value)}
                 placeholder="描述咖啡的风味特点，如：柠檬酸质明亮，花香明显，尾韵悠长..."
@@ -203,7 +248,75 @@ export default function BatchForm({ batch, onSave, onCancel, roastLevels, status
                 placeholder="记录发现的缺陷，如：焦苦味、涩感、发展不足..."
               />
             </div>
+          </div>
+
+          <div className="form-section">
+            <h3>杯测评分</h3>
+            <div className="cupping-score-summary">
+              <div className="cupping-summary-item">
+                <span className="cupping-summary-label">总分</span>
+                <span className="cupping-summary-value">{totalScore !== null ? totalScore : '-'}</span>
+              </div>
+              {grade && (
+                <div className="cupping-summary-item">
+                  <span className="cupping-summary-label">等级</span>
+                  <span className="cupping-grade-badge" style={{ background: grade.color + '20', color: grade.color }}>
+                    {grade.grade} - {grade.label}
+                  </span>
+                </div>
+              )}
+              {suggestion && (
+                <div className="cupping-summary-item">
+                  <span className="cupping-summary-label">建议</span>
+                  <span className={`cupping-suggestion-badge suggestion-${getSuggestionClass(suggestion)}`}>
+                    {suggestion}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="cupping-fields-grid">
+              {CUPPING_FIELDS.map(field => (
+                <div key={field.key} className="form-group cupping-field">
+                  <label>{field.label} (0-10)</label>
+                  <div className="cupping-input-wrapper">
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      step="0.5"
+                      value={formData.cupping[field.key] !== '' && formData.cupping[field.key] !== null ? formData.cupping[field.key] : 0}
+                      onChange={e => handleCuppingChange(field.key, e.target.value)}
+                      className="cupping-slider"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      max="10"
+                      step="0.5"
+                      value={formData.cupping[field.key] !== null && formData.cupping[field.key] !== undefined ? formData.cupping[field.key] : ''}
+                      onChange={e => handleCuppingChange(field.key, e.target.value)}
+                      className="cupping-number-input"
+                      placeholder="--"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <div className="form-row">
+              <div className="form-group">
+                <label>缺陷扣分 (0-10)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.5"
+                  value={formData.cupping.defectDeduction !== null && formData.cupping.defectDeduction !== undefined ? formData.cupping.defectDeduction : ''}
+                  onChange={e => handleCuppingChange('defectDeduction', e.target.value)}
+                  placeholder="如缺陷明显可适当扣分"
+                />
+              </div>
               <div className="form-group">
                 <label>复盘状态</label>
                 <select
@@ -216,6 +329,17 @@ export default function BatchForm({ batch, onSave, onCancel, roastLevels, status
                 </select>
               </div>
             </div>
+
+            <div className="form-group">
+              <label>杯测总评</label>
+              <textarea
+                rows={2}
+                value={formData.cupping.overallNotes || ''}
+                onChange={e => handleCuppingChange('overallNotes', e.target.value)}
+                placeholder="对本次杯测的整体评价..."
+              />
+            </div>
+
             <div className="form-group">
               <label>复盘结论</label>
               <textarea

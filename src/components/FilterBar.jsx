@@ -1,4 +1,5 @@
 import React from 'react'
+import { SCORE_RANGES, REVIEW_SUGGESTIONS } from '../utils/storage'
 
 export default function FilterBar({ filters, onFilterChange, beanTypes, roastLevels, statusOptions }) {
   function handleChange(key, value) {
@@ -11,7 +12,9 @@ export default function FilterBar({ filters, onFilterChange, beanTypes, roastLev
       dateFrom: '',
       dateTo: '',
       roastLevel: '',
-      reviewStatus: ''
+      reviewStatus: '',
+      scoreRange: '',
+      reviewSuggestion: ''
     })
   }
 
@@ -63,6 +66,30 @@ export default function FilterBar({ filters, onFilterChange, beanTypes, roastLev
           <option value="">全部</option>
           {statusOptions.map(status => (
             <option key={status} value={status}>{status}</option>
+          ))}
+        </select>
+      </div>
+      <div className="filter-item">
+        <label>评分区间</label>
+        <select
+          value={filters.scoreRange}
+          onChange={e => handleChange('scoreRange', e.target.value)}
+        >
+          <option value="">全部</option>
+          {SCORE_RANGES.map(range => (
+            <option key={range.value} value={range.value}>{range.label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="filter-item">
+        <label>复盘建议</label>
+        <select
+          value={filters.reviewSuggestion}
+          onChange={e => handleChange('reviewSuggestion', e.target.value)}
+        >
+          <option value="">全部</option>
+          {Object.values(REVIEW_SUGGESTIONS).map(suggestion => (
+            <option key={suggestion} value={suggestion}>{suggestion}</option>
           ))}
         </select>
       </div>

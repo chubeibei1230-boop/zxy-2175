@@ -7,6 +7,85 @@ export const REVIEW_STATUS = {
 
 export const ROAST_LEVELS = ['浅烘', '中浅', '中烘', '中深', '深烘']
 
+export const CUPPING_FIELDS = [
+  { key: 'aroma', label: '香气', max: 10 },
+  { key: 'acidity', label: '酸质', max: 10 },
+  { key: 'sweetness', label: '甜感', max: 10 },
+  { key: 'body', label: '醇厚度', max: 10 },
+  { key: 'aftertaste', label: '余韵', max: 10 },
+  { key: 'balance', label: '均衡度', max: 10 }
+]
+
+export const CUPPING_GRADES = [
+  { min: 90, grade: 'S', label: '卓越', color: '#6a1b9a' },
+  { min: 85, grade: 'A', label: '优秀', color: '#2e7d32' },
+  { min: 80, grade: 'B', label: '良好', color: '#1565c0' },
+  { min: 75, grade: 'C', label: '一般', color: '#e65100' },
+  { min: 0, grade: 'D', label: '较差', color: '#c62828' }
+]
+
+export const REVIEW_SUGGESTIONS = {
+  REUSABLE: '可复用',
+  ADJUST: '建议微调',
+  RE_ROAST: '需要重烘'
+}
+
+export const SCORE_RANGES = [
+  { value: '90+', label: '90分以上' },
+  { value: '85-89', label: '85-89分' },
+  { value: '80-84', label: '80-84分' },
+  { value: '75-79', label: '75-79分' },
+  { value: 'below75', label: '75分以下' }
+]
+
+export function calculateTotalScore(cupping) {
+  if (!cupping) return null
+  const scores = CUPPING_FIELDS.map(f => cupping[f.key])
+  const validScores = scores.filter(s => s !== null && s !== undefined && s !== '')
+  if (validScores.length === 0) return null
+  const sum = validScores.reduce((acc, s) => acc + Number(s), 0)
+  const defectDeduction = cupping.defectDeduction ? Number(cupping.defectDeduction) : 0
+  const normalizedScore = (sum / (validScores.length * 10)) * 100 - defectDeduction * (100 / 60)
+  return Number(Math.max(0, normalizedScore).toFixed(1))
+}
+
+export function getGrade(totalScore) {
+  if (totalScore === null || totalScore === undefined) return null
+  for (const g of CUPPING_GRADES) {
+    if (totalScore >= g.min) {
+      return g
+    }
+  }
+  return CUPPING_GRADES[CUPPING_GRADES.length - 1]
+}
+
+export function getReviewSuggestion(batch) {
+  const totalScore = calculateTotalScore(batch.cupping)
+  if (totalScore === null) return null
+  
+  const defectDeduction = batch.cupping?.defectDeduction ? Number(batch.cupping.defectDeduction) : 0
+  
+  if (totalScore >= 88 && defectDeduction <= 1) {
+    return REVIEW_SUGGESTIONS.REUSABLE
+  } else if (totalScore >= 80 && defectDeduction <= 2) {
+    return REVIEW_SUGGESTIONS.ADJUST
+  } else {
+    return REVIEW_SUGGESTIONS.RE_ROAST
+  }
+}
+
+export function isCuppingComplete(cupping) {
+  if (!cupping) return false
+  const scores = CUPPING_FIELDS.map(f => cupping[f.key])
+  return scores.every(s => s !== null && s !== undefined && s !== '')
+}
+
+export function hasAnyCuppingScore(cupping) {
+  if (!cupping) return false
+  const scores = CUPPING_FIELDS.map(f => cupping[f.key])
+  return scores.some(s => s !== null && s !== undefined && s !== '')
+}
+
 export const STORAGE_KEY = 'coffee_roasting_batches'
 
 export function generateId() {
@@ -71,6 +150,7 @@ export function duplicateBatch(id) {
       reviewConclusion: '',
       defectNotes: '',
       flavorNotes: original.flavorNotes,
+      cupping: original.cupping ? { ...original.cupping, defectDeduction: '' } : null,
       createdAt: Date.now()
     }
     batches.unshift(copy)
@@ -106,6 +186,19 @@ export function validateBatch(batch) {
 
   if (batch.reviewStatus !== REVIEW_STATUS.PENDING && !batch.reviewConclusion) {
     warnings.push({ type: 'conclusion', message: '复盘结论未填写' })
+  }
+
+  if (hasAnyCuppingScore(batch.cupping) && !isCuppingComplete(batch.cupping)) {
+    warnings.push({ type: 'cupping_incomplete', message: '杯测评分不完整，部分维度未填写' })
+  }
+
+  const totalScore = calculateTotalScore(batch.cupping)
+  if (totalScore !== null && totalScore < 75 && !batch.reviewConclusion) {
+    warnings.push({ type: 'low_score_no_conclusion', message: '评分较低但未填写复盘结论' })
+  }
+
+  if (batch.reviewStatus === REVIEW_STATUS.TESTED && !hasAnyCuppingScore(batch.cupping)) {
+    warnings.push({ type: 'tested_no_cupping', message: '状态为已杯测但未填写评分' })
   }
 
   return warnings

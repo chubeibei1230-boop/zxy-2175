@@ -1,5 +1,5 @@
 import React from 'react'
-import { validateBatch } from '../utils/storage'
+import { validateBatch, calculateTotalScore, getGrade, getReviewSuggestion } from '../utils/storage'
 
 export default function BatchList({
   batches, selectedIds, compareIds,
@@ -15,6 +15,15 @@ export default function BatchList({
       case '已杯测': return 'status-tested'
       case '需调整': return 'status-adjust'
       case '可复用': return 'status-reusable'
+      default: return ''
+    }
+  }
+
+  function getSuggestionClass(suggestion) {
+    switch (suggestion) {
+      case '可复用': return 'reusable'
+      case '建议微调': return 'adjust'
+      case '需要重烘': return 'reroast'
       default: return ''
     }
   }
@@ -42,6 +51,9 @@ export default function BatchList({
               <th>处理法</th>
               <th>烘焙日期</th>
               <th>烘焙程度</th>
+              <th>评分</th>
+              <th>等级</th>
+              <th>建议</th>
               <th>转黄时间</th>
               <th>一爆时间</th>
               <th>下豆温度</th>
@@ -54,6 +66,9 @@ export default function BatchList({
             {batches.map(batch => {
               const warnings = validateBatch(batch)
               const hasWarning = warnings.length > 0
+              const totalScore = calculateTotalScore(batch.cupping)
+              const grade = getGrade(totalScore)
+              const suggestion = getReviewSuggestion(batch)
               return (
                 <tr key={batch.id} className={hasWarning ? 'has-warning' : ''}>
                   <td>
@@ -76,6 +91,27 @@ export default function BatchList({
                   <td>{batch.processMethod || '-'}</td>
                   <td>{batch.roastDate || '-'}</td>
                   <td>{batch.roastLevel || '-'}</td>
+                  <td className="cupping-score-cell">
+                    {totalScore !== null ? (
+                      <span className="cupping-score-value" style={{ color: grade?.color }}>
+                        {totalScore}
+                      </span>
+                    ) : '-'}
+                  </td>
+                  <td>
+                    {grade ? (
+                      <span className="cupping-grade-badge" style={{ background: grade.color + '20', color: grade.color }}>
+                        {grade.grade}
+                      </span>
+                    ) : '-'}
+                  </td>
+                  <td>
+                    {suggestion ? (
+                      <span className={`cupping-suggestion-badge suggestion-${getSuggestionClass(suggestion)}`}>
+                        {suggestion}
+                      </span>
+                    ) : '-'}
+                  </td>
                   <td>{batch.yellowTime || '-'}</td>
                   <td>{batch.firstCrackTime || '-'}</td>
                   <td>{batch.dropTemp !== null && batch.dropTemp !== undefined && batch.dropTemp !== '' ? `${batch.dropTemp}°C` : '-'}</td>

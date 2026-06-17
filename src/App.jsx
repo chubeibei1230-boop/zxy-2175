@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react'
 import {
   getBatches, addBatch, updateBatch, deleteBatch,
   duplicateBatch, exportToJson, REVIEW_STATUS, ROAST_LEVELS,
-  validateBatch, checkFrequentAdjustments
+  validateBatch, checkFrequentAdjustments, calculateTotalScore,
+  getReviewSuggestion
 } from './utils/storage'
 import BatchList from './components/BatchList'
 import BatchForm from './components/BatchForm'
@@ -17,7 +18,9 @@ export default function App() {
     dateFrom: '',
     dateTo: '',
     roastLevel: '',
-    reviewStatus: ''
+    reviewStatus: '',
+    scoreRange: '',
+    reviewSuggestion: ''
   })
   const [selectedIds, setSelectedIds] = useState([])
   const [compareIds, setCompareIds] = useState([])
@@ -38,6 +41,21 @@ export default function App() {
       if (filters.dateTo && b.roastDate > filters.dateTo) return false
       if (filters.roastLevel && b.roastLevel !== filters.roastLevel) return false
       if (filters.reviewStatus && b.reviewStatus !== filters.reviewStatus) return false
+      
+      if (filters.scoreRange) {
+        const totalScore = calculateTotalScore(b.cupping)
+        if (totalScore === null) return false
+        const [min, max] = filters.scoreRange === '90+' ? [90, 100] :
+                          filters.scoreRange === 'below75' ? [0, 74.9] :
+                          filters.scoreRange.split('-').map(Number)
+        if (totalScore < min || totalScore > max) return false
+      }
+      
+      if (filters.reviewSuggestion) {
+        const suggestion = getReviewSuggestion(b)
+        if (suggestion !== filters.reviewSuggestion) return false
+      }
+      
       return true
     })
   }, [batches, filters])

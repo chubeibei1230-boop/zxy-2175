@@ -7,6 +7,9 @@ export default function AlertPanel({ alerts, onClose }) {
       case 'missing': return '⚠️'
       case 'conclusion': return '📝'
       case 'frequent': return '🔄'
+      case 'cupping_incomplete': return '📊'
+      case 'low_score_no_conclusion': return '📉'
+      case 'tested_no_cupping': return '☕'
       default: return '⚠️'
     }
   }
@@ -17,6 +20,9 @@ export default function AlertPanel({ alerts, onClose }) {
       case 'missing': return 'alert-missing'
       case 'conclusion': return 'alert-conclusion'
       case 'frequent': return 'alert-frequent'
+      case 'cupping_incomplete': return 'alert-cupping'
+      case 'low_score_no_conclusion': return 'alert-low-score'
+      case 'tested_no_cupping': return 'alert-tested-no-cupping'
       default: return ''
     }
   }
@@ -32,7 +38,10 @@ export default function AlertPanel({ alerts, onClose }) {
     temp: '温度异常',
     missing: '数据缺失',
     conclusion: '复盘结论缺失',
-    frequent: '调整频繁'
+    frequent: '调整频繁',
+    cupping_incomplete: '杯测评分不完整',
+    low_score_no_conclusion: '低分无复盘结论',
+    tested_no_cupping: '已杯测但无评分'
   }
 
   return (
