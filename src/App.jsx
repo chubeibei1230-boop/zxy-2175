@@ -15,6 +15,7 @@ import FilterBar from './components/FilterBar'
 import AlertPanel from './components/AlertPanel'
 import TemplateList from './components/TemplateList'
 import TemplateForm from './components/TemplateForm'
+import InsightPanel from './components/InsightPanel'
 
 export default function App() {
   const [batches, setBatches] = useState([])
@@ -40,6 +41,8 @@ export default function App() {
   const [editingTemplate, setEditingTemplate] = useState(null)
   const [templateSourceBatch, setTemplateSourceBatch] = useState(null)
   const [isTemplateFromBatch, setIsTemplateFromBatch] = useState(false)
+  const [showInsights, setShowInsights] = useState(false)
+  const [insightFilterBatchIds, setInsightFilterBatchIds] = useState(null)
 
   useEffect(() => {
     setBatches(getBatches())
@@ -48,6 +51,7 @@ export default function App() {
 
   const filteredBatches = useMemo(() => {
     return batches.filter(b => {
+      if (insightFilterBatchIds && !insightFilterBatchIds.includes(b.id)) return false
       if (filters.beanType && !b.beanType?.includes(filters.beanType)) return false
       if (filters.dateFrom && b.roastDate < filters.dateFrom) return false
       if (filters.dateTo && b.roastDate > filters.dateTo) return false
@@ -76,7 +80,20 @@ export default function App() {
       
       return true
     })
-  }, [batches, filters])
+  }, [batches, filters, insightFilterBatchIds])
+
+  function handleViewBatchesFromInsight(ids) {
+    setInsightFilterBatchIds(ids)
+  }
+
+  function handleClearInsightFilter() {
+    setInsightFilterBatchIds(null)
+  }
+
+  function handleStartCompareFromInsight(ids) {
+    setCompareIds(ids)
+    setShowCompare(true)
+  }
 
   const beanTypes = useMemo(() => {
     const set = new Set(batches.map(b => b.beanType).filter(Boolean))
@@ -269,6 +286,9 @@ export default function App() {
       <header className="app-header">
         <h1>☕ 咖啡豆烘焙批次记录</h1>
         <div className="header-actions">
+          <button className="btn btn-secondary" onClick={() => setShowInsights(true)}>
+            📊 烘焙复盘洞察
+          </button>
           <button className="btn btn-secondary" onClick={() => setShowTemplateList(true)}>
             📋 模板库 ({templates.length})
           </button>
@@ -283,6 +303,15 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {insightFilterBatchIds && (
+        <div className="insight-filter-bar">
+          <span>🔍 正在查看洞察筛选结果（{insightFilterBatchIds.length} 条记录）</span>
+          <button className="btn btn-sm btn-cancel" onClick={handleClearInsightFilter}>
+            清除筛选
+          </button>
+        </div>
+      )}
 
       {showAlerts && (
         <AlertPanel alerts={alerts} onClose={() => setShowAlerts(false)} />
@@ -394,6 +423,20 @@ export default function App() {
         <CompareView
           batches={compareBatches}
           onClose={() => setShowCompare(false)}
+        />
+      )}
+
+      {showInsights && (
+        <InsightPanel
+          batches={batches}
+          templates={templates}
+          beanTypes={beanTypes}
+          onClose={() => setShowInsights(false)}
+          onViewBatches={handleViewBatchesFromInsight}
+          onStartCompare={handleStartCompareFromInsight}
+          onSaveAsTemplate={handleSaveAsTemplate}
+          onUseTemplate={handleUseTemplate}
+          onOpenTemplateList={() => setShowTemplateList(true)}
         />
       )}
 

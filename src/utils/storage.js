@@ -374,3 +374,203 @@ export function canSaveAsTemplate(batch) {
   const suggestion = getReviewSuggestion(batch)
   return suggestion === REVIEW_SUGGESTIONS.REUSABLE || suggestion === REVIEW_SUGGESTIONS.ADJUST
 }
+
+export function getInsightStats(batches) {
+  const total = batches.length
+  const testedBatches = batches.filter(b => b.reviewStatus === REVIEW_STATUS.TESTED || b.reviewStatus === REVIEW_STATUS.REUSABLE || b.reviewStatus === REVIEW_STATUS.NEED_ADJUST)
+  const testedCount = testedBatches.length
+
+  const scoredBatches = batches.filter(b => calculateTotalScore(b.cupping) !== null)
+  let avgScore = null
+  if (scoredBatches.length > 0) {
+    const sum = scoredBatches.reduce((acc, b) => acc + calculateTotalScore(b.cupping), 0)
+    avgScore = Number((sum / scoredBatches.length).toFixed(1))
+  }
+
+  const reusableCount = batches.filter(b => {
+    const s = getReviewSuggestion(b)
+    return s === REVIEW_SUGGESTIONS.REUSABLE
+  }).length
+
+  const adjustCount = batches.filter(b => {
+    const s = getReviewSuggestion(b)
+    return s === REVIEW_SUGGESTIONS.ADJUST
+  }).length
+
+  const reRoastCount = batches.filter(b => {
+    const s = getReviewSuggestion(b)
+    return s === REVIEW_SUGGESTIONS.RE_ROAST
+  }).length
+
+  const pendingCount = batches.filter(b => getReviewSuggestion(b) === null).length
+
+  return {
+    total,
+    testedCount,
+    avgScore,
+    reusableCount,
+    adjustCount,
+    reRoastCount,
+    pendingCount,
+    scoredCount: scoredBatches.length
+  }
+}
+
+export function getSuggestionDistribution(batches) {
+  const reusable = []
+  const adjust = []
+  const reRoast = []
+  const unscored = []
+
+  batches.forEach(b => {
+    const suggestion = getReviewSuggestion(b)
+    if (suggestion === REVIEW_SUGGESTIONS.REUSABLE) {
+      reusable.push(b)
+    } else if (suggestion === REVIEW_SUGGESTIONS.ADJUST) {
+      adjust.push(b)
+    } else if (suggestion === REVIEW_SUGGESTIONS.RE_ROAST) {
+      reRoast.push(b)
+    } else {
+      unscored.push(b)
+    }
+  })
+
+  return { reusable, adjust, reRoast, unscored }
+}
+
+export function getCommonIssues(batches) {
+  const issues = []
+
+  const lowScoreBatches = batches.filter(b => {
+    const score = calculateTotalScore(b.cupping)
+    return score !== null && score < 80
+  })
+  if (lowScoreBatches.length > 0) {
+    const avgScore = lowScoreBatches.reduce((acc, b) => acc + calculateTotalScore(b.cupping), 0) / lowScoreBatches.length
+    issues.push({
+      type: 'low_score',
+      level: 'warning',
+      title: '低分批次较多',
+      message: `共有 ${lowScoreBatches.length} 个批次评分低于 80 分，平均分 ${avgScore.toFixed(1)}，建议重点分析烘焙曲线。`,
+      batchIds: lowScoreBatches.map(b => b.id)
+    })
+  }
+
+  const defectBatches = batches.filter(b => {
+    const deduction = b.cupping?.defectDeduction ? Number(b.cupping.defectDeduction) : 0
+    return deduction >= 2
+  })
+  if (defectBatches.length > 0) {
+    issues.push({
+      type: 'high_defect',
+      level: 'error',
+      title: '缺陷扣分偏高',
+      message: `有 ${defectBatches.length} 个批次缺陷扣分 ≥ 2 分，可能存在烘焙不均匀或豆种本身问题。`,
+      batchIds: defectBatches.map(b => b.id)
+    })
+  }
+
+  const frequentIssues = checkFrequentAdjustments(batches)
+  frequentIssues.forEach(f => {
+    issues.push({
+      type: 'frequent_adjust',
+      level: 'warning',
+      title: '调整过于频繁',
+      message: f.message,
+      beanType: f.beanType
+    })
+  })
+
+  const missingTimeBatches = batches.filter(b => !b.yellowTime || !b.firstCrackTime)
+  if (missingTimeBatches.length > 0) {
+    issues.push({
+      type: 'missing_data',
+      level: 'info',
+      title: '关键数据缺失',
+      message: `有 ${missingTimeBatches.length} 个批次缺少转黄时间或一爆时间记录，建议完善数据以获得更准确的洞察。`,
+      batchIds: missingTimeBatches.map(b => b.id)
+    })
+  }
+
+  const pendingBatches = batches.filter(b => b.reviewStatus === REVIEW_STATUS.PENDING && calculateTotalScore(b.cupping) !== null)
+  if (pendingBatches.length > 0) {
+    issues.push({
+      type: 'pending_review',
+      level: 'info',
+      title: '待复盘批次',
+      message: `有 ${pendingBatches.length} 个批次已评分但状态仍为「待杯测」，建议更新复盘状态。`,
+      batchIds: pendingBatches.map(b => b.id)
+    })
+  }
+
+  return issues
+}
+
+export function getGroupedByBeanType(batches) {
+  const groups = {}
+  batches.forEach(b => {
+    const key = b.beanType || '未命名豆种'
+    if (!groups[key]) {
+      groups[key] = []
+    }
+    groups[key].push(b)
+  })
+  return Object.entries(groups).map(([beanType, list]) => {
+    const scored = list.filter(b => calculateTotalScore(b.cupping) !== null)
+    const avgScore = scored.length > 0
+      ? Number((scored.reduce((acc, b) => acc + calculateTotalScore(b.cupping), 0) / scored.length).toFixed(1))
+      : null
+    const reusable = list.filter(b => getReviewSuggestion(b) === REVIEW_SUGGESTIONS.REUSABLE).length
+    return { beanType, count: list.length, avgScore, reusable }
+  }).sort((a, b) => b.count - a.count)
+}
+
+export function getGroupedByRoastLevel(batches) {
+  const groups = {}
+  ROAST_LEVELS.forEach(level => { groups[level] = [] })
+  batches.forEach(b => {
+    if (b.roastLevel && groups[b.roastLevel]) {
+      groups[b.roastLevel].push(b)
+    }
+  })
+  return Object.entries(groups).map(([roastLevel, list]) => {
+    const scored = list.filter(b => calculateTotalScore(b.cupping) !== null)
+    const avgScore = scored.length > 0
+      ? Number((scored.reduce((acc, b) => acc + calculateTotalScore(b.cupping), 0) / scored.length).toFixed(1))
+      : null
+    const reusable = list.filter(b => getReviewSuggestion(b) === REVIEW_SUGGESTIONS.REUSABLE).length
+    return { roastLevel, count: list.length, avgScore, reusable }
+  })
+}
+
+export function getScoreDistribution(batches) {
+  const dist = {}
+  CUPPING_GRADES.forEach(g => { dist[g.grade] = { ...g, count: 0, batches: [] } })
+  batches.forEach(b => {
+    const score = calculateTotalScore(b.cupping)
+    if (score !== null) {
+      const grade = getGrade(score)
+      if (grade) {
+        dist[grade.grade].count++
+        dist[grade.grade].batches.push(b)
+      }
+    }
+  })
+  return Object.values(dist)
+}
+
+export function findRecommendedTemplates(templates, batches) {
+  const starred = templates.filter(t => t.recommendStatus === TEMPLATE_RECOMMEND_STATUS.STARRED)
+  const recommended = templates.filter(t => t.recommendStatus === TEMPLATE_RECOMMEND_STATUS.RECOMMENDED)
+
+  const topReusableBatches = batches
+    .filter(b => getReviewSuggestion(b) === REVIEW_SUGGESTIONS.REUSABLE)
+    .sort((a, b) => calculateTotalScore(b.cupping) - calculateTotalScore(a.cupping))
+    .slice(0, 3)
+
+  return {
+    starred,
+    recommended,
+    topReusableBatches
+  }
+}
