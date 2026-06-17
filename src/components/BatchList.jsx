@@ -1,10 +1,10 @@
 import React from 'react'
-import { validateBatch, calculateTotalScore, getGrade, getReviewSuggestion } from '../utils/storage'
+import { validateBatch, calculateTotalScore, getGrade, getReviewSuggestion, canSaveAsTemplate, REVIEW_SUGGESTIONS } from '../utils/storage'
 
 export default function BatchList({
   batches, selectedIds, compareIds,
   onSelectAll, onSelect, onCompareToggle,
-  onEdit, onDuplicate, onDelete
+  onEdit, onDuplicate, onDelete, onSaveAsTemplate
 }) {
   const visibleIds = batches.map(b => b.id)
   const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id))
@@ -59,7 +59,7 @@ export default function BatchList({
               <th>下豆温度</th>
               <th>风味描述</th>
               <th>复盘状态</th>
-              <th>操作</th>
+              <th style={{ width: 180 }}>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -126,6 +126,15 @@ export default function BatchList({
                   <td className="action-cell">
                     <button className="btn-link" onClick={() => onEdit(batch)}>编辑</button>
                     <button className="btn-link" onClick={() => onDuplicate(batch.id)}>复制</button>
+                    {onSaveAsTemplate && canSaveAsTemplate(batch) && (
+                      <button
+                        className={`btn-link btn-save-template ${suggestion === REVIEW_SUGGESTIONS.REUSABLE ? 'template-reusable' : 'template-adjust'}`}
+                        onClick={() => onSaveAsTemplate(batch)}
+                        title={suggestion === REVIEW_SUGGESTIONS.REUSABLE ? '表现优秀，推荐保存为模板' : '表现良好，微调后可保存为模板'}
+                      >
+                        {suggestion === REVIEW_SUGGESTIONS.REUSABLE ? '⭐存模板' : '📋存模板'}
+                      </button>
+                    )}
                     <button className="btn-link btn-danger" onClick={() => onDelete(batch.id)}>删除</button>
                   </td>
                 </tr>

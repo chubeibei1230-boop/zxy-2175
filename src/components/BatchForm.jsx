@@ -27,9 +27,10 @@ const emptyBatch = {
   }
 }
 
-export default function BatchForm({ batch, onSave, onCancel, roastLevels, statusOptions }) {
+export default function BatchForm({ batch, onSave, onCancel, roastLevels, statusOptions, templates = [], onOpenTemplateList }) {
   const [formData, setFormData] = useState(emptyBatch)
   const [errors, setErrors] = useState({})
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
 
   useEffect(() => {
     if (batch) {
@@ -39,10 +40,46 @@ export default function BatchForm({ batch, onSave, onCancel, roastLevels, status
         dropTemp: batch.dropTemp?.toString() || '',
         cupping: { ...emptyBatch.cupping, ...batch.cupping }
       })
+      if (batch.appliedTemplateId) {
+        setSelectedTemplateId(batch.appliedTemplateId)
+      }
     } else {
       setFormData(emptyBatch)
+      setSelectedTemplateId('')
     }
   }, [batch])
+
+  function handleTemplateSelect(templateId) {
+    setSelectedTemplateId(templateId)
+    if (!templateId) return
+    const template = templates.find(t => t.id === templateId)
+    if (template) {
+      setFormData(prev => ({
+        ...prev,
+        beanType: template.beanType || prev.beanType,
+        processMethod: template.processMethod || prev.processMethod,
+        roastLevel: template.roastLevel || prev.roastLevel,
+        yellowTime: template.yellowTime || prev.yellowTime,
+        firstCrackTime: template.firstCrackTime || prev.firstCrackTime,
+        dropTemp: template.dropTemp !== null && template.dropTemp !== undefined ? template.dropTemp : prev.dropTemp,
+        greenWeight: template.greenWeight !== null && template.greenWeight !== undefined ? template.greenWeight : prev.greenWeight,
+        roastedWeight: template.roastedWeight !== null && template.roastedWeight !== undefined ? template.roastedWeight : prev.roastedWeight,
+        flavorNotes: template.flavorTarget || prev.flavorNotes,
+        appliedTemplateId: template.id,
+        appliedTemplateName: template.name
+      }))
+    }
+  }
+
+  function clearTemplate() {
+    setSelectedTemplateId('')
+    setFormData(prev => {
+      const next = { ...prev }
+      delete next.appliedTemplateId
+      delete next.appliedTemplateName
+      return next
+    })
+  }
 
   function handleChange(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -121,6 +158,56 @@ export default function BatchForm({ batch, onSave, onCancel, roastLevels, status
         </div>
 
         <form className="batch-form" onSubmit={handleSubmit}>
+          {!batch && (
+            <div className="template-apply-section">
+              <div className="template-apply-header">
+                <span className="template-apply-icon">📋</span>
+                <span className="template-apply-title">从模板快速带入</span>
+              </div>
+              <div className="template-apply-row">
+                <select
+                  value={selectedTemplateId}
+                  onChange={e => handleTemplateSelect(e.target.value)}
+                  className="template-select"
+                >
+                  <option value="">-- 选择烘焙方案模板 --</option>
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.recommendStatus === '精选' ? '⭐ ' : t.recommendStatus === '推荐' ? '👍 ' : ''}
+                      {t.name || '未命名模板'} - {t.beanType || '未指定豆种'}
+                    </option>
+                  ))}
+                </select>
+                {onOpenTemplateList && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={onOpenTemplateList}
+                  >
+                    浏览模板库
+                  </button>
+                )}
+                {selectedTemplateId && (
+                  <button
+                    type="button"
+                    className="btn btn-cancel btn-sm"
+                    onClick={clearTemplate}
+                  >
+                    清除模板
+                  </button>
+                )}
+              </div>
+              {formData.appliedTemplateName && (
+                <div className="template-applied-banner">
+                  <span className="template-applied-check">✓</span>
+                  <span>
+                    已应用模板「<strong>{formData.appliedTemplateName}</strong>」，参数已填入，您可以在保存前自由调整
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="form-section">
             <h3>基本信息</h3>
             <div className="form-row">

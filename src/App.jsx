@@ -3,16 +3,22 @@ import {
   getBatches, addBatch, updateBatch, deleteBatch,
   duplicateBatch, exportToJson, REVIEW_STATUS, ROAST_LEVELS,
   validateBatch, checkFrequentAdjustments, calculateTotalScore,
-  getReviewSuggestion
+  getReviewSuggestion,
+  getTemplates, addTemplate, updateTemplate, deleteTemplate,
+  duplicateTemplate, markTemplateUsed, TEMPLATE_RECOMMEND_STATUS,
+  createTemplateFromBatch, applyTemplateToBatch
 } from './utils/storage'
 import BatchList from './components/BatchList'
 import BatchForm from './components/BatchForm'
 import CompareView from './components/CompareView'
 import FilterBar from './components/FilterBar'
 import AlertPanel from './components/AlertPanel'
+import TemplateList from './components/TemplateList'
+import TemplateForm from './components/TemplateForm'
 
 export default function App() {
   const [batches, setBatches] = useState([])
+  const [templates, setTemplates] = useState([])
   const [filters, setFilters] = useState({
     beanType: '',
     dateFrom: '',
@@ -29,9 +35,15 @@ export default function App() {
   const [showCompare, setShowCompare] = useState(false)
   const [showAlerts, setShowAlerts] = useState(false)
   const [toast, setToast] = useState(null)
+  const [showTemplateList, setShowTemplateList] = useState(false)
+  const [showTemplateForm, setShowTemplateForm] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState(null)
+  const [templateSourceBatch, setTemplateSourceBatch] = useState(null)
+  const [isTemplateFromBatch, setIsTemplateFromBatch] = useState(false)
 
   useEffect(() => {
     setBatches(getBatches())
+    setTemplates(getTemplates())
   }, [])
 
   const filteredBatches = useMemo(() => {
@@ -116,11 +128,89 @@ export default function App() {
     if (editingBatch) {
       updateBatch(editingBatch.id, batchData)
     } else {
+      if (batchData.appliedTemplateId) {
+        markTemplateUsed(batchData.appliedTemplateId)
+        setTemplates(getTemplates())
+      }
       addBatch(batchData)
     }
     setBatches(getBatches())
     setShowForm(false)
     setEditingBatch(null)
+  }
+
+  function handleSaveAsTemplate(batch) {
+    const templateData = createTemplateFromBatch(batch)
+    setTemplateSourceBatch(batch)
+    setEditingTemplate(templateData)
+    setIsTemplateFromBatch(true)
+    setShowTemplateForm(true)
+  }
+
+  function handleOpenTemplateListFromForm() {
+    setShowTemplateList(true)
+  }
+
+  function handleEditTemplate(template) {
+    setEditingTemplate(template)
+    setIsTemplateFromBatch(false)
+    setTemplateSourceBatch(null)
+    setShowTemplateList(false)
+    setShowTemplateForm(true)
+  }
+
+  function handleDeleteTemplate(id) {
+    if (confirm('确定要删除这个模板吗？')) {
+      deleteTemplate(id)
+      setTemplates(getTemplates())
+      showToast('模板已删除')
+    }
+  }
+
+  function handleDuplicateTemplate(id) {
+    duplicateTemplate(id)
+    setTemplates(getTemplates())
+    showToast('模板已复制')
+  }
+
+  function handleUseTemplate(template) {
+    const batchData = applyTemplateToBatch(template)
+    markTemplateUsed(template.id)
+    setTemplates(getTemplates())
+    setEditingBatch(batchData)
+    setShowTemplateList(false)
+    setShowForm(true)
+    showToast(`已应用模板「${template.name}」，请调整后保存`)
+  }
+
+  function handleToggleRecommendTemplate(id) {
+    const template = templates.find(t => t.id === id)
+    if (!template) return
+    let nextStatus
+    if (template.recommendStatus === TEMPLATE_RECOMMEND_STATUS.STARRED) {
+      nextStatus = TEMPLATE_RECOMMEND_STATUS.NORMAL
+    } else if (template.recommendStatus === TEMPLATE_RECOMMEND_STATUS.RECOMMENDED) {
+      nextStatus = TEMPLATE_RECOMMEND_STATUS.STARRED
+    } else {
+      nextStatus = TEMPLATE_RECOMMEND_STATUS.RECOMMENDED
+    }
+    updateTemplate(id, { recommendStatus: nextStatus })
+    setTemplates(getTemplates())
+  }
+
+  function handleSaveTemplate(templateData) {
+    if (editingTemplate && editingTemplate.id) {
+      updateTemplate(editingTemplate.id, templateData)
+      showToast('模板已更新')
+    } else {
+      addTemplate(templateData)
+      showToast('模板已创建')
+    }
+    setTemplates(getTemplates())
+    setShowTemplateForm(false)
+    setEditingTemplate(null)
+    setIsTemplateFromBatch(false)
+    setTemplateSourceBatch(null)
   }
 
   function handleBatchStatusChange(status) {
@@ -181,6 +271,9 @@ export default function App() {
       <header className="app-header">
         <h1>☕ 咖啡豆烘焙批次记录</h1>
         <div className="header-actions">
+          <button className="btn btn-secondary" onClick={() => setShowTemplateList(true)}>
+            📋 模板库 ({templates.length})
+          </button>
           <button className="btn btn-secondary" onClick={() => setShowAlerts(!showAlerts)}>
             数据检查 ({alerts.length})
           </button>
@@ -252,6 +345,7 @@ export default function App() {
         onEdit={handleEdit}
         onDuplicate={handleDuplicate}
         onDelete={handleDelete}
+        onSaveAsTemplate={handleSaveAsTemplate}
       />
 
       {showForm && (
@@ -264,6 +358,37 @@ export default function App() {
           }}
           roastLevels={ROAST_LEVELS}
           statusOptions={Object.values(REVIEW_STATUS)}
+          templates={templates}
+          onOpenTemplateList={handleOpenTemplateListFromForm}
+        />
+      )}
+
+      {showTemplateList && !showTemplateForm && (
+        <TemplateList
+          templates={templates}
+          batches={batches}
+          onClose={() => setShowTemplateList(false)}
+          onEdit={handleEditTemplate}
+          onDelete={handleDeleteTemplate}
+          onDuplicate={handleDuplicateTemplate}
+          onUse={handleUseTemplate}
+          onToggleRecommend={handleToggleRecommendTemplate}
+        />
+      )}
+
+      {showTemplateForm && (
+        <TemplateForm
+          template={editingTemplate}
+          sourceBatch={templateSourceBatch}
+          isFromBatch={isTemplateFromBatch}
+          onSave={handleSaveTemplate}
+          onCancel={() => {
+            setShowTemplateForm(false)
+            setEditingTemplate(null)
+            setIsTemplateFromBatch(false)
+            setTemplateSourceBatch(null)
+          }}
+          roastLevels={ROAST_LEVELS}
         />
       )}
 

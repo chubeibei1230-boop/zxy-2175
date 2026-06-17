@@ -231,3 +231,146 @@ export function checkFrequentAdjustments(batches) {
 
   return issues
 }
+
+export const TEMPLATES_STORAGE_KEY = 'coffee_roasting_templates'
+
+export const TEMPLATE_RECOMMEND_STATUS = {
+  NORMAL: '普通',
+  RECOMMENDED: '推荐',
+  STARRED: '精选'
+}
+
+export function getTemplates() {
+  try {
+    const data = localStorage.getItem(TEMPLATES_STORAGE_KEY)
+    return data ? JSON.parse(data) : []
+  } catch (e) {
+    console.error('Failed to load templates:', e)
+    return []
+  }
+}
+
+export function saveTemplates(templates) {
+  try {
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates))
+    return true
+  } catch (e) {
+    console.error('Failed to save templates:', e)
+    return false
+  }
+}
+
+export function addTemplate(template) {
+  const templates = getTemplates()
+  const newTemplate = { ...template, id: generateId(), createdAt: Date.now(), lastUsedAt: null, useCount: 0 }
+  templates.unshift(newTemplate)
+  saveTemplates(templates)
+  return newTemplate
+}
+
+export function updateTemplate(id, updates) {
+  const templates = getTemplates()
+  const index = templates.findIndex(t => t.id === id)
+  if (index !== -1) {
+    templates[index] = { ...templates[index], ...updates, updatedAt: Date.now() }
+    saveTemplates(templates)
+    return templates[index]
+  }
+  return null
+}
+
+export function deleteTemplate(id) {
+  const templates = getTemplates()
+  const filtered = templates.filter(t => t.id !== id)
+  saveTemplates(filtered)
+  return filtered
+}
+
+export function duplicateTemplate(id) {
+  const templates = getTemplates()
+  const original = templates.find(t => t.id === id)
+  if (original) {
+    const copy = {
+      ...original,
+      id: generateId(),
+      name: original.name ? `${original.name} (副本)` : '未命名模板',
+      recommendStatus: TEMPLATE_RECOMMEND_STATUS.NORMAL,
+      lastUsedAt: null,
+      useCount: 0,
+      createdAt: Date.now()
+    }
+    templates.unshift(copy)
+    saveTemplates(templates)
+    return copy
+  }
+  return null
+}
+
+export function markTemplateUsed(id) {
+  const templates = getTemplates()
+  const index = templates.findIndex(t => t.id === id)
+  if (index !== -1) {
+    templates[index] = {
+      ...templates[index],
+      lastUsedAt: Date.now(),
+      useCount: (templates[index].useCount || 0) + 1
+    }
+    saveTemplates(templates)
+    return templates[index]
+  }
+  return null
+}
+
+export function createTemplateFromBatch(batch, options = {}) {
+  const totalScore = calculateTotalScore(batch.cupping)
+  return {
+    name: options.name || `${batch.beanType || '未命名'} - ${batch.roastLevel || '烘焙方案'}`,
+    beanType: batch.beanType || '',
+    processMethod: batch.processMethod || '',
+    roastLevel: batch.roastLevel || '',
+    yellowTime: batch.yellowTime || '',
+    firstCrackTime: batch.firstCrackTime || '',
+    dropTemp: batch.dropTemp !== null && batch.dropTemp !== undefined ? batch.dropTemp : null,
+    greenWeight: batch.greenWeight !== null && batch.greenWeight !== undefined ? batch.greenWeight : null,
+    roastedWeight: batch.roastedWeight !== null && batch.roastedWeight !== undefined ? batch.roastedWeight : null,
+    flavorTarget: batch.flavorNotes || '',
+    cuppingSnapshot: batch.cupping ? { ...batch.cupping } : null,
+    cuppingTotalScore: totalScore,
+    reviewConclusion: batch.reviewConclusion || '',
+    sourceBatchId: batch.id || null,
+    sourceBatchDate: batch.roastDate || null,
+    recommendStatus: TEMPLATE_RECOMMEND_STATUS.NORMAL,
+    notes: options.notes || ''
+  }
+}
+
+export function applyTemplateToBatch(template) {
+  const emptyCupping = {}
+  CUPPING_FIELDS.forEach(f => { emptyCupping[f.key] = '' })
+  emptyCupping.defectDeduction = ''
+  emptyCupping.overallNotes = ''
+
+  return {
+    beanType: template.beanType || '',
+    processMethod: template.processMethod || '',
+    roastDate: new Date().toISOString().split('T')[0],
+    roastLevel: template.roastLevel || '',
+    yellowTime: template.yellowTime || '',
+    firstCrackTime: template.firstCrackTime || '',
+    dropTemp: template.dropTemp !== null && template.dropTemp !== undefined ? template.dropTemp : '',
+    greenWeight: template.greenWeight !== null && template.greenWeight !== undefined ? template.greenWeight : '',
+    roastedWeight: template.roastedWeight !== null && template.roastedWeight !== undefined ? template.roastedWeight : '',
+    flavorNotes: template.flavorTarget || '',
+    defectNotes: '',
+    reviewStatus: REVIEW_STATUS.PENDING,
+    reviewConclusion: '',
+    cupping: emptyCupping,
+    appliedTemplateId: template.id,
+    appliedTemplateName: template.name
+  }
+}
+
+export function canSaveAsTemplate(batch) {
+  const suggestion = getReviewSuggestion(batch)
+  return suggestion === REVIEW_SUGGESTIONS.REUSABLE || suggestion === REVIEW_SUGGESTIONS.ADJUST
+}
