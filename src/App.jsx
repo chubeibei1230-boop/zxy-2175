@@ -25,6 +25,7 @@ export default function App() {
   const [editingBatch, setEditingBatch] = useState(null)
   const [showCompare, setShowCompare] = useState(false)
   const [showAlerts, setShowAlerts] = useState(false)
+  const [toast, setToast] = useState(null)
 
   useEffect(() => {
     setBatches(getBatches())
@@ -127,9 +128,16 @@ export default function App() {
         return prev.filter(cid => cid !== id)
       } else if (prev.length < 3) {
         return [...prev, id]
+      } else {
+        showToast('最多只能对比 3 条记录')
+        return prev
       }
-      return prev
     })
+  }
+
+  function showToast(message) {
+    setToast(message)
+    setTimeout(() => setToast(null), 2500)
   }
 
   function handleExport() {
@@ -240,6 +248,10 @@ export default function App() {
           batches={compareBatches}
           onClose={() => setShowCompare(false)}
         />
+      )}
+
+      {toast && (
+        <div className="toast">{toast}</div>
       )}
     </div>
   )

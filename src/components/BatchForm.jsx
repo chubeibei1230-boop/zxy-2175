@@ -60,9 +60,9 @@ export default function BatchForm({ batch, onSave, onCancel, roastLevels, status
 
     const data = {
       ...formData,
-      dropTemp: formData.dropTemp ? Number(formData.dropTemp) : null,
-      greenWeight: formData.greenWeight ? Number(formData.greenWeight) : null,
-      roastedWeight: formData.roastedWeight ? Number(formData.roastedWeight) : null
+      dropTemp: formData.dropTemp !== '' ? Number(formData.dropTemp) : null,
+      greenWeight: formData.greenWeight !== '' ? Number(formData.greenWeight) : null,
+      roastedWeight: formData.roastedWeight !== '' ? Number(formData.roastedWeight) : null
     }
     onSave(data)
   }

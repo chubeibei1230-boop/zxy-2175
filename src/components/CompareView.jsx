@@ -23,9 +23,9 @@ export default function CompareView({ batches, onClose }) {
     { label: '烘焙程度', key: 'roastLevel' },
     { label: '转黄时间', key: 'yellowTime' },
     { label: '一爆时间', key: 'firstCrackTime' },
-    { label: '下豆温度', key: 'dropTemp', format: v => v ? `${v}°C` : '-' },
-    { label: '生豆重量', key: 'greenWeight', format: v => v ? `${v}g` : '-' },
-    { label: '熟豆重量', key: 'roastedWeight', format: v => v ? `${v}g` : '-' },
+    { label: '下豆温度', key: 'dropTemp', format: v => v !== null && v !== undefined && v !== '' ? `${v}°C` : '-' },
+    { label: '生豆重量', key: 'greenWeight', format: v => v !== null && v !== undefined && v !== '' ? `${v}g` : '-' },
+    { label: '熟豆重量', key: 'roastedWeight', format: v => v !== null && v !== undefined && v !== '' ? `${v}g` : '-' },
     { label: '复盘状态', key: 'reviewStatus' },
     { label: '缺陷备注', key: 'defectNotes' },
     { label: '复盘结论', key: 'reviewConclusion' }

@@ -96,7 +96,7 @@ export function exportToJson(batches) {
 export function validateBatch(batch) {
   const warnings = []
 
-  if (batch.dropTemp && (batch.dropTemp < 150 || batch.dropTemp > 250)) {
+  if (batch.dropTemp !== null && batch.dropTemp !== undefined && batch.dropTemp !== '' && (batch.dropTemp < 150 || batch.dropTemp > 250)) {
     warnings.push({ type: 'temp', message: '下豆温度异常，建议范围 150-250°C' })
   }
 

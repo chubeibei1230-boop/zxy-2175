@@ -6,7 +6,8 @@ export default function BatchList({
   onSelectAll, onSelect, onCompareToggle,
   onEdit, onDuplicate, onDelete
 }) {
-  const allSelected = batches.length > 0 && selectedIds.length === batches.length
+  const visibleIds = batches.map(b => b.id)
+  const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id))
 
   function getStatusClass(status) {
     switch (status) {
@@ -77,7 +78,7 @@ export default function BatchList({
                   <td>{batch.roastLevel || '-'}</td>
                   <td>{batch.yellowTime || '-'}</td>
                   <td>{batch.firstCrackTime || '-'}</td>
-                  <td>{batch.dropTemp ? `${batch.dropTemp}°C` : '-'}</td>
+                  <td>{batch.dropTemp !== null && batch.dropTemp !== undefined && batch.dropTemp !== '' ? `${batch.dropTemp}°C` : '-'}</td>
                   <td className="flavor-cell" title={batch.flavorNotes}>
                     {batch.flavorNotes || '-'}
                   </td>
